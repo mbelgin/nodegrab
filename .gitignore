@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OOD runtime / secrets
+.env
+.env.local
+*.key
+*.pem
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temp
+tmp/
