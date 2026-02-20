@@ -178,9 +178,9 @@ logic in submit.yml.erb.
 
 ## Authors
 
-Mehmet Belgin <mehmet.belgin@moffitt.org>
-Shane Corder <shane.corder@moffitt.org>
-Moffitt Cancer Center
+- Mehmet Belgin <mehmet.belgin@moffitt.org>
+- Shane Corder <shane.corder@moffitt.org>
+- Moffitt Cancer Center
 
 
 ## License
