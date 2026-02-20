@@ -1,0 +1,145 @@
+<%
+  # ===========================================================================
+  # SITE CONFIGURATION
+  #
+  # Edit the values in this section to match your cluster. Everything below
+  # this block uses these variables, so you should not need to touch the
+  # rest of the file.
+  # ===========================================================================
+
+  # Cluster name as defined in /etc/ood/config/clusters.d/*.yml
+  cluster_name = "slurm"
+
+  # Path to the Slurm client binaries (sacctmgr, sinfo, scontrol).
+  # Use the default if Slurm is in $PATH on the OOD host.
+  slurm_bin = "/usr/bin"
+
+  # Default partition to pre-select in the form and to query for limits.
+  default_partition = "batch"
+
+  # Partitions to HIDE from the dropdown. Ruby regex, matched against
+  # the partition name. Example: /^(viz|debug|maint)$/
+  # Set to nil to show all partitions.
+  hidden_partitions = nil
+
+  # Fallback values used when Slurm queries fail or return nothing.
+  fallback_max_nodes = 64
+  fallback_max_hours = 168      # 7 days, in hours
+  fallback_qos       = "normal"
+
+  # Per-node hardware limits shown in the form.
+  max_cores_per_node = 64
+  default_cores      = 4
+  default_mem        = "4G"
+
+  # GPU support. Set gpu_enabled to false to hide the GPU checkbox entirely.
+  gpu_enabled        = true
+  gpu_description    = "Request 1 GPU per node"
+
+  # ===========================================================================
+  # DYNAMIC QUERIES (no edits needed below this line)
+  # ===========================================================================
+
+  # Fetch the user's available QOS tiers from Slurm.
+  user_qos_raw = `#{slurm_bin}/sacctmgr show associations user=#{ENV['USER']} format=QOS%-200 --noheader 2>/dev/null`.strip
+  user_qos_list = user_qos_raw.split(',').map(&:strip).reject(&:empty?).uniq
+
+  if user_qos_list.empty?
+    user_qos_list = [fallback_qos]
+  end
+
+  qos_options = user_qos_list.map do |qos|
+    label = qos.capitalize
+    label = "#{label} (default)" if qos == fallback_qos
+    [label, qos]
+  end
+
+  # Query max nodes from the default partition.
+  max_nodes = `#{slurm_bin}/sinfo -p #{default_partition} -h -o "%D" 2>/dev/null`.strip.to_i
+  max_nodes = fallback_max_nodes if max_nodes <= 0
+
+  # Query max walltime from the default partition.
+  max_time_raw = `#{slurm_bin}/scontrol show partition #{default_partition} -o 2>/dev/null | grep -oP 'MaxTime=\\K[^ ]+'`.strip
+  if max_time_raw =~ /(\d+)-(\d+):(\d+):(\d+)/
+    max_hours = ($1.to_i * 24) + $2.to_i
+  elsif max_time_raw =~ /(\d+):(\d+):(\d+)/
+    max_hours = $1.to_i
+  else
+    max_hours = fallback_max_hours
+  end
+%>
+---
+cluster: "<%= cluster_name %>"
+form:
+  - partition
+  - bc_num_hours
+  - bc_num_nodes
+  - bc_num_cores
+  - bc_mem
+<% if gpu_enabled %>
+  - bc_num_gpu
+<% end %>
+  - reservation
+  - qos_tier
+attributes:
+  partition:
+    widget: select
+    label: "Partition"
+    help: "Select the partition"
+    options:
+<%- OodAppkit.clusters[cluster_name].job_adapter.queues.each do |queue| -%>
+<%- next if hidden_partitions && queue.name.match?(hidden_partitions) -%>
+      - ["<%= queue.name.upcase %>", "<%= queue.name %>"]
+<%- end -%>
+    value: "<%= default_partition %>"
+  qos_tier:
+    widget: select
+    label: "QoS Tier"
+    help: "Select QoS tier based on your resource needs"
+    options:
+      <%- qos_options.each do |opt| -%>
+      - ["<%= opt[0] %>", "<%= opt[1] %>"]
+      <%- end -%>
+    value: "<%= fallback_qos %>"
+  bc_num_hours:
+    widget: number_field
+    label: "Runtime (hours)"
+    help: "Maximum runtime in hours (max <%= max_hours %> hours = <%= max_hours / 24 %> days)"
+    min: 1
+    max: <%= max_hours %>
+    step: 1
+    value: 4
+  bc_num_nodes:
+    widget: number_field
+    label: "Number of Nodes"
+    help: "Number of compute nodes to allocate (max <%= max_nodes %> available)"
+    min: 1
+    max: <%= max_nodes %>
+    step: 1
+    value: 1
+  bc_num_cores:
+    widget: number_field
+    label: "Cores per Node"
+    help: "Number of CPU cores per node"
+    min: 1
+    max: <%= max_cores_per_node %>
+    step: 1
+    value: <%= default_cores %>
+  bc_mem:
+    widget: text_field
+    label: "Memory per Core (e.g. 4G)"
+    help: "Memory per allocated core. Default is <%= default_mem %>."
+    value: "<%= default_mem %>"
+<% if gpu_enabled %>
+  bc_num_gpu:
+    widget: check_box
+    label: "<%= gpu_description %>"
+    help: "Check to request a GPU with your allocation"
+    value: "0"
+<% end %>
+  reservation:
+    widget: text_field
+    label: "Reservation (optional)"
+    help: "Leave blank unless instructed by your system administrators. Incorrect reservation names will cause job failure."
+    value: ""
+    placeholder: "Leave blank unless you have a reservation"

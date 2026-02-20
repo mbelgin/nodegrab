@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# OOD renders script.sh.erb into script.sh but does not always set +x.
+# This hook runs before the batch job and fixes that.
+
+USER_SCRIPT_PATH="<%= session.staged_root %>/script.sh"
+
+if [ -f "${USER_SCRIPT_PATH}" ]; then
+  chmod +x "${USER_SCRIPT_PATH}"
+else
+  echo "ERROR: ${USER_SCRIPT_PATH} not found after template rendering."
+fi

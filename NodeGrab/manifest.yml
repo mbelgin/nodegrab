@@ -1,0 +1,10 @@
+---
+name: NodeGrab
+# Adjust category/subcategory to match your site's OOD navigation structure.
+category: "Interactive Apps"
+subcategory: "Compute Sessions"
+icon: fa://server
+role: batch_connect
+description: |
+  Launches interactive Slurm sessions and connects users inside a persistent
+  tmux session, preserving work across browser and network interruptions.

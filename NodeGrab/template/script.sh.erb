@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# ===========================================================================
+# NodeGrab batch script
+#
+# This runs inside the Slurm allocation on the compute node. It does three
+# things:
+#   1. Writes connection.yml so the OOD dashboard knows how to reach us.
+#   2. Starts a detached tmux session in the batch step cgroup.
+#   3. Sleeps for the requested walltime, keeping the allocation alive.
+#
+# The tmux session lives in the job's main cgroup (not inside an srun
+# step), so it survives when individual srun connections come and go.
+# Slurm kills it automatically when the job ends.
+# ===========================================================================
+
+# --- Write connection.yml for the OOD dashboard and view.html.erb ---
+cat > "<%= session.staged_root %>/connection.yml" <<CONN
+host: $(hostname -f)
+port:
+password:
+ood_session_id: <%= session.id %>
+slurm_job_id: ${SLURM_JOB_ID}
+CONN
+
+# --- Cleanup trap: kill tmux session on job exit ---
+cleanup() {
+  echo "Cleaning up tmux session: <%= session.id %>"
+  tmux kill-session -t "<%= session.id %>" 2>/dev/null || true
+}
+trap cleanup EXIT TERM INT
+
+# --- Job prologue ---
+echo "---------------------------------------------------------------------"
+echo "NodeGrab Interactive Session"
+echo "User:        <%= ENV['USER'] %>"
+echo "Job ID:      ${SLURM_JOB_ID:-N/A}"
+echo "Walltime:    <%= context.bc_num_hours %> hours"
+echo "Nodes:       <%= context.bc_num_nodes.blank? ? 1 : context.bc_num_nodes.to_i %>"
+echo "Cores/Node:  <%= context.bc_num_cores.blank? ? 4 : context.bc_num_cores.to_i %>"
+echo "Mem/Core:    <%= context.bc_mem.blank? ? '4G' : context.bc_mem %>"
+<% if defined?(context.bc_num_gpu) %>
+echo "GPU:         <%= context.bc_num_gpu.to_s == "1" ? "Yes" : "No" %>"
+<% end %>
+echo "Host:        $(hostname -f)"
+echo "Directory:   $(pwd)"
+echo "Started:     $(date)"
+echo "---------------------------------------------------------------------"
+echo ""
+echo "Manual connection (from a login node):"
+echo "  srun --jobid=${SLURM_JOB_ID} --overlap --pty tmux attach-session -t <%= session.id %>"
+echo "---------------------------------------------------------------------"
+echo ""
+
+# --- Start persistent tmux session in the batch step cgroup ---
+echo "Starting persistent tmux session: <%= session.id %>"
+tmux new-session -d -s "<%= session.id %>"
+
+# --- Keep the allocation alive for the requested walltime ---
+SLEEP_DURATION_SECONDS=$(( <%= context.bc_num_hours.to_i %> * 3600 ))
+
+if [ "$SLEEP_DURATION_SECONDS" -le 0 ]; then
+  echo "ERROR: Invalid or zero runtime from bc_num_hours=<%= context.bc_num_hours.inspect %>"
+  echo "Check the form and submission configuration. Exiting."
+  exit 1
+fi
+
+echo "Session will remain active for approximately $SLEEP_DURATION_SECONDS seconds."
+sleep $SLEEP_DURATION_SECONDS
+
+echo ""
+echo "---------------------------------------------------------------------"
+echo "NodeGrab session completed at: $(date)"
+echo "---------------------------------------------------------------------"
+
+exit 0

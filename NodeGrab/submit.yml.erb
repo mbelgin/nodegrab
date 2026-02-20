@@ -1,0 +1,42 @@
+<%
+  # ===========================================================================
+  # SITE CONFIGURATION
+  #
+  # Defaults used when form fields are left blank. Should match the
+  # defaults in form.yml.erb.
+  # ===========================================================================
+  default_cores = 4
+  default_mem   = "4G"
+  default_nodes = 1
+  default_hours = 4
+%>
+---
+batch_connect:
+  template: "basic"
+
+script:
+  copy_environment: true
+  shell: "/bin/bash"
+
+  native:
+    - "-p"
+    - "<%= partition %>"
+    - "--qos"
+    - "<%= qos_tier %>"
+    - "-N"
+    - "<%= bc_num_nodes.blank? ? default_nodes : bc_num_nodes.to_i %>"
+    - "--mem-per-cpu=<%= bc_mem.blank? ? default_mem : bc_mem %>"
+    - "--cpus-per-task=<%= bc_num_cores.blank? ? default_cores : bc_num_cores.to_i %>"
+<% if defined?(bc_num_gpu) && bc_num_gpu.to_s == "1" %>
+    # This assumes 1 GPU per node. If your site has multiple GPU types or
+    # allows users to request more than one, replace this with a select or
+    # number field in form.yml.erb and change the gres string accordingly
+    # (e.g. "--gres=gpu:a100:2"). The check_box widget returns "1" when
+    # checked and "0" when unchecked, which is why the comparison is == "1".
+    - "--gres=gpu:1"
+<% end %>
+    - "--time=<%= bc_num_hours.blank? ? default_hours : bc_num_hours.to_i %>:00:00"
+    - "--job-name=NodeGrab_<%= ENV['USER'] %>_<%= Time.now.strftime('%Y%m%d%H%M') %>"
+<% if defined?(reservation) && !reservation.nil? && !reservation.strip.empty? %>
+    - "--reservation=<%= reservation.strip %>"
+<% end %>

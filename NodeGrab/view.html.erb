@@ -1,0 +1,50 @@
+<%#
+  NodeGrab session view
+
+  This template renders after the job starts running. It reads connection.yml
+  (written by script.sh.erb) and builds a URL to the TmuxShell app so the
+  user gets a one-click terminal into their allocation.
+
+  SITE CONFIGURATION: update these two values to match your deployment.
+%>
+
+<%
+  # ---------------------------------------------------------------------------
+  # Name of the cluster as defined in /etc/ood/config/clusters.d/*.yml.
+  # Must match the cluster_name in form.yml.erb.
+  cluster_name = "slurm"
+
+  # Directory name of the TmuxShell app under /var/www/ood/apps/sys/.
+  # If you renamed it, change this.
+  tmux_shell_app = "TmuxShell"
+  # ---------------------------------------------------------------------------
+
+  if defined?(connect) && connect.respond_to?(:slurm_job_id) && !connect.slurm_job_id.to_s.strip.empty?
+    slurm_job_id = connect.slurm_job_id
+    login_host = OodAppkit.clusters[cluster_name].login.host
+
+    # Auto-detect dev vs sys deployment so the URL works in both contexts.
+    session_path = Dir.glob(File.expand_path("~/ondemand/data/sys/dashboard/batch_connect/*/NodeGrab/output/#{connect.ood_session_id}")).first || ''
+    app_base = session_path.include?('/dev/') ? '/pun/dev' : '/pun/sys'
+
+    shell_url = "#{app_base}/#{tmux_shell_app}/ssh/#{login_host}?jobid=#{slurm_job_id}&ood_session_id=#{connect.ood_session_id}"
+%>
+
+<div class="alert alert-success" role="alert">
+  <strong>Job ID:</strong> <%= slurm_job_id %> &nbsp;|&nbsp;
+  <strong>Node:</strong> <%= connect.host %>
+</div>
+
+<a href="<%= shell_url %>" class="btn btn-lg btn-primary" target="_blank">
+  <i class="fas fa-terminal"></i> Connect to Session
+</a>
+
+<p class="text-muted mt-3">
+  <small>Opens a tmux session on the compute node. You can disconnect and reconnect without losing your work.</small>
+</p>
+
+<% else %>
+<div class="alert alert-danger">
+  <strong>Error:</strong> Could not retrieve job information from connection.yml.
+</div>
+<% end %>

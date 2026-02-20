@@ -1,0 +1,15 @@
+---
+name: TmuxShell
+# Adjust category/subcategory to match your site's OOD navigation structure.
+category: "Clusters"
+subcategory: "Shell Access"
+icon: fa://terminal
+role: shell
+description: |
+  Launches an SSH session wrapped in tmux for persistence. Supports standalone
+  login-node sessions and srun-based attachment to Slurm job allocations
+  (used by the NodeGrab companion app).
+
+# Set to false to hide TmuxShell from the nav menu (NodeGrab-only backend).
+# Set to true to show it in the Clusters menu as a standalone persistent shell.
+show_in_menu: false
